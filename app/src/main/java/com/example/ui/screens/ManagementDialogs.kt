@@ -1543,7 +1543,8 @@ fun SupabaseIntegrationDialog(
                     ) {
                         Text(
                             text = """
-                            CREATE TABLE public.service_sessions (
+                            -- 1. Criação da Tabela service_sessions
+                            CREATE TABLE IF NOT EXISTS public.service_sessions (
                               id bigint PRIMARY KEY,
                               company text,
                               store_name text,
@@ -1561,8 +1562,18 @@ fun SupabaseIntegrationDialog(
                               synced_at bigint
                             );
 
+                            -- 2. Ativação de RLS e Políticas
                             ALTER TABLE public.service_sessions ENABLE ROW LEVEL SECURITY;
-                            CREATE POLICY "Allow public read" ON public.service_sessions FOR SELECT USING (true);
+                            DROP POLICY IF EXISTS "Allow public all" ON public.service_sessions;
+                            CREATE POLICY "Allow public all" ON public.service_sessions FOR ALL USING (true);
+
+                            -- 3. Inserção de Dados Exemplo (Seed Data)
+                            INSERT INTO public.service_sessions (id, company, store_name, address, date, time, description, service_type, prestador_name, prestador_phone, gerente_name, gerente_phone, status, created_at, synced_at)
+                            VALUES 
+                            (1001, 'Empresa Carrefour', 'Carrefour Osasco', 'Av. dos Autonomistas, 1500 - Osasco, SP', '2026-07-25', '14:30', 'Manutenção preventiva em ar condicionado', 'AR_CONDICIONADO', 'Roberto Silva', '11988887777', 'Carlos Gerente', '11977776666', 'EM_ANDAMENTO', 1784988000000, 1784988000000),
+                            (1002, 'Rede Pão de Açúcar', 'Loja Jardins', 'Alameda Santos, 900 - São Paulo, SP', '2026-07-25', '15:00', 'Reparo no sistema elétrico do freezer principal', 'ELETRICA', 'Ana Paula Santos', '11999998888', 'Fernanda Lima', '11988889999', 'AGENDADA', 1784988100000, 1784988100000),
+                            (1003, 'Drogaria São Paulo', 'Unidade Paulista', 'Av. Paulista, 1200 - São Paulo, SP', '2026-07-25', '16:00', 'Instalação de novas câmeras CFTV', 'SEGURANCA', 'Marcos Oliveira', '11955554444', 'Ricardo Souza', '11944443333', 'CONCLUIDA', 1784988200000, 1784988200000)
+                            ON CONFLICT (id) DO NOTHING;
                             """.trimIndent(),
                             fontSize = 9.sp,
                             color = Color(0xFF38BDF8),
