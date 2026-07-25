@@ -24,7 +24,7 @@ interface SessionDao {
     fun getAuditLogsForSession(sessionId: Long): Flow<List<AuditLog>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAuditLog(log: AuditLog)
+    suspend fun insertAuditLog(log: AuditLog): Long
 
     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC")
     fun getAllAuditLogs(): Flow<List<AuditLog>>

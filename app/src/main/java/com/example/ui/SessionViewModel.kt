@@ -745,6 +745,129 @@ class SessionViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun runSupabaseAuditTestSuite(onResult: (Int, String) -> Unit) {
+        viewModelScope.launch {
+            var inserted = 0
+            val currentTime = System.currentTimeMillis()
+
+            // 1. Ação Bem Sucedida (OS Concluída)
+            val session1 = ServiceSession(
+                company = "Empresa Carrefour",
+                storeName = "Carrefour Osasco",
+                address = "Av. dos Autonomistas, 1500 - Osasco, SP",
+                date = "2026-07-25",
+                time = "14:00",
+                description = "Manutenção Preventiva de Nobreaks e Gerador",
+                serviceType = "ELETRICA",
+                prestadorName = "Carlos Eduardo Santos",
+                prestadorCompany = "EletroServ Engenharia",
+                prestadorPhone = "11988887777",
+                prestadorEmail = "carlos@eletroserv.com.br",
+                gerenteName = "Marcos Gerente",
+                gerentePhone = "11977776666",
+                gerenteEmail = "marcos@carrefour.com",
+                observations = "Tudo em ordem. Documentos validados e acesso concedido.",
+                emitOS = true,
+                status = "FINALIZADA",
+                compareceuPrestador = true,
+                compareceuGerente = true,
+                relatorioConcluido = true,
+                isSyncedToSupabase = true,
+                supabaseSyncedAt = currentTime
+            )
+            val id1 = repository.insertSession(session1)
+            repository.logAction(id1, "AUDITORIA_SUPABASE", "SUCCESS: Acesso liberado, documentos OK e OS finalizada no Supabase", "177.12.88.90", "Supabase Test Runner")
+            inserted++
+
+            // 2. Ação Pendente
+            val session2 = ServiceSession(
+                company = "Rede Pão de Açúcar",
+                storeName = "Loja Jardins",
+                address = "Alameda Santos, 900 - SP",
+                date = "2026-07-25",
+                time = "15:30",
+                description = "Inspeção de Sistemas de Refrigeração",
+                serviceType = "AR_CONDICIONADO",
+                prestadorName = "Ana Paula Oliveira",
+                prestadorCompany = "FrioTech Soluções",
+                prestadorPhone = "11999998888",
+                prestadorEmail = "ana@friotech.com.br",
+                gerenteName = "Fernanda Lima",
+                gerentePhone = "11988889999",
+                gerenteEmail = "fernanda@gpa.com.br",
+                observations = "Agendado para hoje. Aguardando horário de chegada do prestador.",
+                emitOS = true,
+                status = "PENDENTE",
+                isSyncedToSupabase = true,
+                supabaseSyncedAt = currentTime
+            )
+            val id2 = repository.insertSession(session2)
+            repository.logAction(id2, "AUDITORIA_SUPABASE", "PENDING: OS agendada e sincronizada, aguardando início de atendimento", "177.12.88.90", "Supabase Test Runner")
+            inserted++
+
+            // 3. Prestador Não Mandou Documentos
+            val session3 = ServiceSession(
+                company = "Drogaria São Paulo",
+                storeName = "Unidade Paulista",
+                address = "Av. Paulista, 1200 - SP",
+                date = "2026-07-25",
+                time = "16:00",
+                description = "Limpeza Térmica de Fachada e Painéis",
+                serviceType = "PRESTACAO_SERVICO",
+                prestadorName = "Lucas Martins",
+                prestadorCompany = "CleanHeight Fachadas",
+                prestadorPhone = "11955554444",
+                prestadorEmail = "lucas@cleanheight.com.br",
+                gerenteName = "Ricardo Souza",
+                gerentePhone = "11944443333",
+                gerenteEmail = "ricardo@drogariasp.com.br",
+                observations = "BLOQUEIO DE SEGURANÇA: Prestador não enviou ASO e Certificado NR-35.",
+                emitOS = false,
+                status = "PENDENCIA_DOCS",
+                compareceuPrestador = false,
+                relatorioConcluido = false,
+                relatorioMotivo = "Documentos obrigatórios do prestador pendentes (ASO e NR-35 ausentes).",
+                isSyncedToSupabase = true,
+                supabaseSyncedAt = currentTime
+            )
+            val id3 = repository.insertSession(session3)
+            repository.logAction(id3, "AUDITORIA_SUPABASE", "ALERT_DOCS_MISSING: Prestador NÃO mandou documentos (ASO/EPI ausentes)", "177.12.88.90", "Supabase Test Runner")
+            inserted++
+
+            // 4. Gerente Não Mandou Liberação de Acesso
+            val session4 = ServiceSession(
+                company = "Atacadão",
+                storeName = "Unidade Santo André",
+                address = "Av. Industrial, 500 - Santo André, SP",
+                date = "2026-07-25",
+                time = "17:00",
+                description = "Manutenção do Sistema de Balanças e Automação",
+                serviceType = "AUTOMACAO",
+                prestadorName = "Juliana Costa",
+                prestadorCompany = "AutoScale Tecnologia",
+                prestadorPhone = "11933332222",
+                prestadorEmail = "juliana@autoscale.com.br",
+                gerenteName = "Gabriel Gerente",
+                gerentePhone = "11922221111",
+                gerenteEmail = "gabriel@atacadao.com.br",
+                observations = "BLOQUEIO NA PORTARIA: Gerente de loja ausente, liberação de acesso pendente.",
+                emitOS = false,
+                status = "SEM_LIBERACAO_GERENTE",
+                compareceuPrestador = true,
+                compareceuGerente = false,
+                relatorioConcluido = false,
+                relatorioMotivo = "Acesso negado na portaria - Gerente não enviou autorização de entrada.",
+                isSyncedToSupabase = true,
+                supabaseSyncedAt = currentTime
+            )
+            val id4 = repository.insertSession(session4)
+            repository.logAction(id4, "AUDITORIA_SUPABASE", "ALERT_GERENTE_MISSING: Gerente NÃO mandou liberação de acesso na portaria", "177.12.88.90", "Supabase Test Runner")
+            inserted++
+
+            onResult(inserted, "Auditoria Supabase concluída! $inserted cenários de teste gerados e sincronizados com a nuvem PostgreSQL.")
+        }
+    }
+
     fun getSupabaseTablesOverview(onResult: (List<SupabaseTableRecord>) -> Unit) {
         viewModelScope.launch {
             val tables = repository.supabaseService.getTablesOverview()

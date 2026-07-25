@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1338,7 +1339,7 @@ fun SupabaseIntegrationDialog(
                                     }
                                 },
                                 modifier = Modifier.weight(1f).height(34.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 if (isTestingConnection) {
                                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color(0xFF059669))
@@ -1351,6 +1352,21 @@ fun SupabaseIntegrationDialog(
 
                             Button(
                                 onClick = {
+                                    viewModel.runSupabaseAuditTestSuite { count, msg ->
+                                        ToastUtils.show(context, msg)
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                modifier = Modifier.weight(1.3f).height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("🧪 Gerar Auditoria Testes", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = {
                                     isSyncingAll = true
                                     viewModel.syncAllSessionsToSupabase(sessions) { count ->
                                         isSyncingAll = false
@@ -1358,15 +1374,15 @@ fun SupabaseIntegrationDialog(
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                modifier = Modifier.weight(1.2f).height(34.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                modifier = Modifier.weight(1.1f).height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 if (isSyncingAll) {
                                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color.White)
                                 } else {
                                     Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Sincronizar em Lote", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("Sync Lote", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1468,26 +1484,65 @@ fun SupabaseIntegrationDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
                                         Text("OS #${session.id}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        
+                                        // Action Status Badge
+                                        val (statusText, badgeBg, badgeFg) = when (session.status) {
+                                            "FINALIZADA" -> Triple("✅ Ação bem sucedida", Color(0xFFD1FAE5), Color(0xFF047857))
+                                            "PENDENTE" -> Triple("⏳ Pendente", Color(0xFFFEF3C7), Color(0xFF92400E))
+                                            "PENDENCIA_DOCS" -> Triple("⚠️ Sem Docs Prestador", Color(0xFFFFEDD5), Color(0xFFC2410C))
+                                            "SEM_LIBERACAO_GERENTE" -> Triple("🛑 Sem Liberação Gerente", Color(0xFFFEE2E2), Color(0xFFB91C1C))
+                                            else -> Triple(session.status, Color(0xFFE2E8F0), Color(0xFF475569))
+                                        }
+
                                         Surface(
-                                            color = if (session.isSyncedToSupabase) Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
+                                            color = badgeBg,
                                             shape = RoundedCornerShape(6.dp)
                                         ) {
                                             Text(
-                                                text = if (session.isSyncedToSupabase) "☁️ CLOUD SYNCED" else "⏳ PENDENTE NUVEM",
+                                                text = statusText,
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (session.isSyncedToSupabase) Color(0xFF047857) else Color(0xFF92400E),
+                                                color = badgeFg,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }
+
+                                        Surface(
+                                            color = if (session.isSyncedToSupabase) Color(0xFFECFDF5) else Color(0xFFFFFBEB),
+                                            shape = RoundedCornerShape(6.dp),
+                                            border = BorderStroke(0.5.dp, if (session.isSyncedToSupabase) Color(0xFF34D399) else Color(0xFFFBBF24))
+                                        ) {
+                                            Text(
+                                                text = if (session.isSyncedToSupabase) "⚡ Supabase OK" else "☁️ Pendente Sync",
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (session.isSyncedToSupabase) Color(0xFF065F46) else Color(0xFF78350F),
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
                                     }
+
                                     Text(
-                                        text = "${session.company} - ${session.storeName} (${session.prestadorName})",
+                                        text = "${session.company} - ${session.storeName} | Prestador: ${session.prestadorName}",
                                         fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+
+                                    if (session.observations.isNotBlank()) {
+                                        Text(
+                                            text = "Obs: ${session.observations}",
+                                            fontSize = 9.sp,
+                                            fontStyle = FontStyle.Italic,
+                                            color = if (session.status.contains("DOCS") || session.status.contains("GERENTE")) Color(0xFFB91C1C) else Color(0xFF475569)
+                                        )
+                                    }
                                 }
 
                                 Button(

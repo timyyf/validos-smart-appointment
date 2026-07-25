@@ -70,7 +70,8 @@ class SessionRepository(
             ipAddress = ipAddress,
             device = device
         )
-        sessionDao.insertAuditLog(auditLog)
+        val id = sessionDao.insertAuditLog(auditLog)
+        supabaseService.syncAuditLogToCloud(auditLog.copy(id = id))
     }
 }
 
