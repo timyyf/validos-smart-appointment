@@ -1194,5 +1194,392 @@ fun SmartAppointmentSystemDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SupabaseIntegrationDialog(
+    sessions: List<ServiceSession>,
+    viewModel: SessionViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var testResultStatus by remember { mutableStateOf<String?>(null) }
+    var isTestingConnection by remember { mutableStateOf(false) }
+    var isSyncingAll by remember { mutableStateOf(false) }
+    var tablesList by remember { mutableStateOf<List<SupabaseTableRecord>>(emptyList()) }
+    var showSqlSchemaDialog by remember { mutableStateOf(false) }
+
+    val supabaseUrl = viewModel.getSupabaseUrl()
+    val isRealConfigured = viewModel.isSupabaseRealConfigured()
+    val syncedCount = sessions.count { it.isSyncedToSupabase }
+
+    LaunchedEffect(Unit) {
+        viewModel.getSupabaseTablesOverview { list ->
+            tablesList = list
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.92f),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Supabase Branded Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF3ECF8E).copy(alpha = 0.15f),
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudSync,
+                                    contentDescription = null,
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "⚡ Supabase Cloud Database",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF065F46)
+                                )
+                                Surface(
+                                    color = Color(0xFFD1FAE5),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = if (isRealConfigured) "PROD LIVE" else "INTEGRADO",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFF047857),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Sincronização em Tempo Real de OSs e Auditoria em Nuvem",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Fechar")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Connection Config Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                    border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Default.Storage, contentDescription = null, tint = Color(0xFF059669), modifier = Modifier.size(16.dp))
+                                Text("Endpoint Supabase REST:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF065F46))
+                            }
+                            Text(
+                                text = "$syncedCount/${sessions.size} OSs Sincronizadas",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                color = Color(0xFF047857)
+                            )
+                        }
+
+                        Text(
+                            text = supabaseUrl,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF047857)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    isTestingConnection = true
+                                    viewModel.testSupabaseConnection { success, message ->
+                                        isTestingConnection = false
+                                        testResultStatus = message
+                                        ToastUtils.show(context, message)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                if (isTestingConnection) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color(0xFF059669))
+                                } else {
+                                    Icon(Icons.Default.WifiTethering, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Testar Conexão", fontSize = 10.sp)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    isSyncingAll = true
+                                    viewModel.syncAllSessionsToSupabase(sessions) { count ->
+                                        isSyncingAll = false
+                                        ToastUtils.show(context, "✅ $count OSs sincronizadas com sucesso no Supabase!")
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                modifier = Modifier.weight(1.2f).height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                if (isSyncingAll) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color.White)
+                                } else {
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Sincronizar em Lote", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        if (testResultStatus != null) {
+                            Text(
+                                text = "Status: $testResultStatus",
+                                fontSize = 10.sp,
+                                color = Color(0xFF047857),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Scrollable List & Schema Options
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "📊 Tabelas & Mapeamento PostgreSQL",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+
+                            TextButton(onClick = { showSqlSchemaDialog = true }) {
+                                Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Ver SQL DDL", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    items(tablesList) { tbl ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("public.${tbl.tableName}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
+                                    Text("Segurança: ${tbl.rlsStatus}", fontSize = 10.sp, color = Color(0xFF64748B))
+                                }
+                                Surface(
+                                    color = Color(0xFFEEF2FF),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "${tbl.recordCount} registros",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4F46E5),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "📋 Status de Sincronização por OS",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    items(sessions) { session ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (session.isSyncedToSupabase) Color(0xFFF0FDF4) else Color(0xFFFFFBEB)
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (session.isSyncedToSupabase) Color(0xFFBBF7D0) else Color(0xFFFDE68A)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("OS #${session.id}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Surface(
+                                            color = if (session.isSyncedToSupabase) Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = if (session.isSyncedToSupabase) "☁️ CLOUD SYNCED" else "⏳ PENDENTE NUVEM",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (session.isSyncedToSupabase) Color(0xFF047857) else Color(0xFF92400E),
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "${session.company} - ${session.storeName} (${session.prestadorName})",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.syncSessionToSupabase(session.id) { success ->
+                                            if (success) ToastUtils.show(context, "OS #${session.id} enviada para Supabase!")
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (session.isSyncedToSupabase) Color(0xFF059669) else Color(0xFFD97706)
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Text(
+                                        text = if (session.isSyncedToSupabase) "Re-Sincronizar" else "Enviar",
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Fechar Painel Supabase", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    if (showSqlSchemaDialog) {
+        AlertDialog(
+            onDismissRequest = { showSqlSchemaDialog = false },
+            title = { Text("⚡ SQL DDL Schema Supabase", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Execute o comando abaixo no Editor SQL do seu projeto Supabase para criar a tabela com RLS ativo:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Surface(
+                        color = Color(0xFF1E293B),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = """
+                            CREATE TABLE public.service_sessions (
+                              id bigint PRIMARY KEY,
+                              company text,
+                              store_name text,
+                              address text,
+                              date text,
+                              time text,
+                              description text,
+                              service_type text,
+                              prestador_name text,
+                              prestador_phone text,
+                              gerente_name text,
+                              gerente_phone text,
+                              status text,
+                              created_at bigint,
+                              synced_at bigint
+                            );
+
+                            ALTER TABLE public.service_sessions ENABLE ROW LEVEL SECURITY;
+                            CREATE POLICY "Allow public read" ON public.service_sessions FOR SELECT USING (true);
+                            """.trimIndent(),
+                            fontSize = 9.sp,
+                            color = Color(0xFF38BDF8),
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showSqlSchemaDialog = false }) {
+                    Text("Entendido")
+                }
+            }
+        )
+    }
+}
+
 private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
 

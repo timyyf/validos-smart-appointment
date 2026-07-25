@@ -71,12 +71,32 @@ data class ServiceSession(
     val pdfCompromissoGeneratedAt: Long? = null,
     val pdfFinalGeneratedAt: Long? = null,
     
+    // Supabase Cloud Sync
+    val isSyncedToSupabase: Boolean = false,
+    val supabaseSyncedAt: Long? = null,
+    
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun getPrestadorLink(): String = "https://validos.app/session/$id/prestador"
     fun getGerenteLink(): String = "https://validos.app/session/$id/gerente"
     fun isLinkActive(): Boolean = status != "ENCERRADA" && status != "CANCELADA" && status != "FINALIZADA"
 }
+
+data class SupabaseSyncStatus(
+    val isConfigured: Boolean,
+    val supabaseUrl: String,
+    val totalSyncedSessions: Int,
+    val lastSyncTimestamp: Long?,
+    val activeTables: List<String>,
+    val errorMessage: String? = null
+)
+
+data class SupabaseTableRecord(
+    val tableName: String,
+    val recordCount: Int,
+    val rlsStatus: String,
+    val lastUpdate: String
+)
 
 enum class SlaCategory {
     PONTUAL,          // Confirmado/Chegou no horário ou até 15 min

@@ -712,4 +712,44 @@ class SessionViewModel(application: Application) : AndroidViewModel(application)
             conflictsDetectedCount = totalConflicts
         )
     }
+
+    // Supabase Cloud Integration Functions
+    fun getSupabaseUrl(): String = repository.supabaseService.getSupabaseUrl()
+
+    fun isSupabaseRealConfigured(): Boolean = repository.supabaseService.isRealConfigured()
+
+    fun syncSessionToSupabase(sessionId: Long, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = repository.syncSessionToSupabase(sessionId)
+            if (success) {
+                repository.logAction(sessionId, "ADMINISTRADOR", "Sessão sincronizada com o Supabase Cloud (PostgreSQL)", "177.12.88.90", "Android App")
+            }
+            onResult(success)
+        }
+    }
+
+    fun syncAllSessionsToSupabase(sessions: List<ServiceSession>, onResult: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val count = repository.syncAllSessionsToSupabase(sessions)
+            if (count > 0) {
+                repository.logAction(1, "ADMINISTRADOR", "Sincronização em lote efetuada no Supabase ($count OSs enviadas)", "177.12.88.90", "Android App")
+            }
+            onResult(count)
+        }
+    }
+
+    fun testSupabaseConnection(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val (success, message) = repository.testSupabaseConnection()
+            onResult(success, message)
+        }
+    }
+
+    fun getSupabaseTablesOverview(onResult: (List<SupabaseTableRecord>) -> Unit) {
+        viewModelScope.launch {
+            val tables = repository.supabaseService.getTablesOverview()
+            onResult(tables)
+        }
+    }
 }
+

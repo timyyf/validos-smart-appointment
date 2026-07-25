@@ -2006,6 +2006,7 @@ fun AdminDashboard(
     var showPendingAuditModal by remember { mutableStateOf(false) }
     var showCompletedSummaryModal by remember { mutableStateOf(false) }
     var showSmartAppointmentModal by remember { mutableStateOf(false) }
+    var showSupabaseModal by remember { mutableStateOf(false) }
     
     // Filter logic
     val filteredSessions = remember(sessions, searchQuery, filterStatus) {
@@ -2060,6 +2061,80 @@ fun AdminDashboard(
                 onOpenCompletedModal = { showCompletedSummaryModal = true },
                 onOpenSmartAppointmentModal = { showSmartAppointmentModal = true }
             )
+        }
+
+        // Supabase Integration Banner
+        item {
+            Card(
+                onClick = { showSupabaseModal = true },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
+                border = BorderStroke(1.5.dp, Color(0xFF10B981)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("btn_open_supabase_integration")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF3ECF8E).copy(alpha = 0.2f),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudSync,
+                                    contentDescription = null,
+                                    tint = Color(0xFF047857),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "⚡ Integração Supabase Cloud Active",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF065F46)
+                                )
+                                Surface(
+                                    color = Color(0xFFD1FAE5),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text(
+                                        text = "${sessions.count { it.isSyncedToSupabase }}/${sessions.size} OSs Sync",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFF047857),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Clique para abrir o painel de sincronização PostgreSQL em nuvem",
+                                fontSize = 11.sp,
+                                color = Color(0xFF047857)
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = Color(0xFF047857),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
 
         // Stats Cards Row
@@ -2413,6 +2488,15 @@ fun AdminDashboard(
             onDismiss = { showSmartAppointmentModal = false }
         )
     }
+
+    if (showSupabaseModal) {
+        SupabaseIntegrationDialog(
+            sessions = sessions,
+            viewModel = viewModel,
+            onDismiss = { showSupabaseModal = false }
+        )
+    }
+
 }
 
 @Composable

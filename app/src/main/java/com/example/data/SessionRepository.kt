@@ -2,7 +2,10 @@ package com.example.data
 
 import kotlinx.coroutines.flow.Flow
 
-class SessionRepository(private val sessionDao: SessionDao) {
+class SessionRepository(
+    private val sessionDao: SessionDao,
+    val supabaseService: SupabaseService = SupabaseService()
+) {
     val allSessions: Flow<List<ServiceSession>> = sessionDao.getAllSessions()
     val allAuditLogs: Flow<List<AuditLog>> = sessionDao.getAllAuditLogs()
 
@@ -19,11 +22,44 @@ class SessionRepository(private val sessionDao: SessionDao) {
     }
 
     suspend fun insertSession(session: ServiceSession): Long {
-        return sessionDao.insertSession(session)
+        val id = sessionDao.insertSession(session)
+        val created = sessionDao.getSessionByIdSuspend(id)
+        if (created != null) {
+            val synced = supabaseService.syncSessionToCloud(created)
+            if (synced) {
+                sessionDao.updateSession(created.copy(isSyncedToSupabase = true, supabaseSyncedAt = System.currentTimeMillis()))
+            }
+        }
+        return id
     }
 
     suspend fun updateSession(session: ServiceSession) {
         sessionDao.updateSession(session)
+    }
+
+    suspend fun syncSessionToSupabase(sessionId: Long): Boolean {
+        val session = sessionDao.getSessionByIdSuspend(sessionId) ?: return false
+        val success = supabaseService.syncSessionToCloud(session)
+        if (success) {
+            sessionDao.updateSession(session.copy(isSyncedToSupabase = true, supabaseSyncedAt = System.currentTimeMillis()))
+        }
+        return success
+    }
+
+    suspend fun syncAllSessionsToSupabase(sessions: List<ServiceSession>): Int {
+        var count = 0
+        for (session in sessions) {
+            val success = supabaseService.syncSessionToCloud(session)
+            if (success) {
+                sessionDao.updateSession(session.copy(isSyncedToSupabase = true, supabaseSyncedAt = System.currentTimeMillis()))
+                count++
+            }
+        }
+        return count
+    }
+
+    suspend fun testSupabaseConnection(): Pair<Boolean, String> {
+        return supabaseService.testConnection()
     }
 
     suspend fun logAction(sessionId: Long, userProfile: String, action: String, ipAddress: String, device: String) {
@@ -37,3 +73,4 @@ class SessionRepository(private val sessionDao: SessionDao) {
         sessionDao.insertAuditLog(auditLog)
     }
 }
+
