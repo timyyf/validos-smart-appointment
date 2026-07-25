@@ -1,0 +1,6 @@
+{
+  "name": "ValidOS",
+  "description": "SaaS para registrar, validar e comprovar a execução de serviços e ordens de serviço (OS) de terceiros. Cada serviço. Cada prova.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
