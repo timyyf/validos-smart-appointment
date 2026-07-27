@@ -6,6 +6,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -2035,6 +2037,9 @@ fun AdminDashboard(
     var showSmartAppointmentModal by remember { mutableStateOf(false) }
     var showSupabaseModal by remember { mutableStateOf(false) }
     
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    
     // Filter logic
     val filteredSessions = remember(sessions, searchQuery, filterStatus) {
         sessions.filter { session ->
@@ -2047,11 +2052,12 @@ fun AdminDashboard(
                     session.id.toString() == searchQuery
                     
             val matchesStatus = when (filterStatus) {
-                "PENDENTE" -> session.status == "PENDENTE"
+                "PENDENTE" -> session.status == "PENDENTE" || session.status.startsWith("PEND") || session.status.startsWith("SEM_")
                 "INICIADA" -> session.status == "INICIADA" || session.status == "RELATORIO_LIBERADO"
-                "FINALIZADA" -> session.status == "FINALIZADA"
-                "ENCERRADA" -> session.status == "ENCERRADA"
+                "FINALIZADA" -> session.status == "FINALIZADA" || session.status == "ENCERRADA"
+                "ENCERRADA" -> session.status == "ENCERRADA" || session.status == "FINALIZADA"
                 "CANCELADA" -> session.status == "CANCELADA"
+                "FALTAS" -> session.compareceuPrestador == false || session.compareceuGerente == false
                 else -> true
             }
             matchesSearch && matchesStatus
@@ -2061,7 +2067,7 @@ fun AdminDashboard(
     // Dashboard metrics
     val totalToday = sessions.size // seeded data is filtered for demo
     val totalInProg = sessions.count { it.status == "INICIADA" || it.status == "RELATORIO_LIBERADO" }
-    val totalPending = sessions.count { it.status == "PENDENTE" }
+    val totalPending = sessions.count { it.status == "PENDENTE" || it.status.startsWith("PEND") || it.status.startsWith("SEM_") }
     val totalDone = sessions.count { it.status == "ENCERRADA" || it.status == "FINALIZADA" }
     val totalCanceled = sessions.count { it.status == "CANCELADA" }
     
@@ -2069,6 +2075,7 @@ fun AdminDashboard(
     val totalFaltas = sessions.count { it.compareceuPrestador == false || it.compareceuGerente == false }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
@@ -2083,6 +2090,9 @@ fun AdminDashboard(
                 currentFilter = filterStatus,
                 onFilterSelect = { newFilter ->
                     viewModel.setFilterStatus(newFilter)
+                    coroutineScope.launch {
+                        listState.animateScrollToItem(5)
+                    }
                 },
                 onOpenPendingModal = { showPendingAuditModal = true },
                 onOpenCompletedModal = { showCompletedSummaryModal = true },
@@ -2188,6 +2198,9 @@ fun AdminDashboard(
                         onClick = {
                             viewModel.setFilterStatus("TODOS")
                             ToastUtils.show(context, "📊 Exibindo todas as sessões do dia")
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(5)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -2201,6 +2214,9 @@ fun AdminDashboard(
                         onClick = {
                             viewModel.setFilterStatus("INICIADA")
                             ToastUtils.show(context, "▶️ Filtrando por Sessões Ativas em Andamento")
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(5)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -2212,7 +2228,11 @@ fun AdminDashboard(
                         icon = Icons.Default.HourglassEmpty,
                         isSelected = filterStatus == "PENDENTE",
                         onClick = {
-                            showPendingAuditModal = true
+                            viewModel.setFilterStatus("PENDENTE")
+                            ToastUtils.show(context, "⏳ Filtrando por Sessões Pendentes")
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(5)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -2226,7 +2246,11 @@ fun AdminDashboard(
                         icon = Icons.Default.CheckCircle,
                         isSelected = filterStatus == "FINALIZADA" || filterStatus == "ENCERRADA",
                         onClick = {
-                            showCompletedSummaryModal = true
+                            viewModel.setFilterStatus("FINALIZADA")
+                            ToastUtils.show(context, "✅ Filtrando por Sessões Concluídas")
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(5)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -2236,9 +2260,13 @@ fun AdminDashboard(
                         subtitle = "Ausências",
                         color = Color(0xFFEF4444),
                         icon = Icons.Default.Cancel,
-                        isSelected = false,
+                        isSelected = filterStatus == "FALTAS",
                         onClick = {
-                            showPendingAuditModal = true
+                            viewModel.setFilterStatus("FALTAS")
+                            ToastUtils.show(context, "⚠️ Filtrando por Sessões com Faltas/Ausências")
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(5)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -2252,6 +2280,9 @@ fun AdminDashboard(
                         onClick = {
                             viewModel.setFilterStatus("CANCELADA")
                             ToastUtils.show(context, "🚫 Filtrando por Sessões Canceladas")
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(5)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -2383,7 +2414,7 @@ fun AdminDashboard(
                 )
 
                 // Filter status Chips
-                val statusFilters = listOf("TODOS", "PENDENTE", "INICIADA", "FINALIZADA", "ENCERRADA", "CANCELADA")
+                val statusFilters = listOf("TODOS", "PENDENTE", "INICIADA", "FINALIZADA", "CANCELADA", "FALTAS")
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
