@@ -1810,7 +1810,12 @@ fun UrgentComplianceTrackerPanel(
 ) {
     val context = LocalContext.current
     val pendingSessions = remember(sessions) {
-        sessions.filter { it.status == "PENDENTE" }
+        sessions.filter { session ->
+            val isFinalized = session.status == "FINALIZADA" || session.status == "ENCERRADA" || session.status == "CANCELADA"
+            val isPrestadorPending = session.prestadorCpf == null
+            val isGerentePending = session.emitOS && (session.gerenteOsNumber == null || !session.gerenteOsEmitted)
+            !isFinalized && (isPrestadorPending || isGerentePending || session.status == "PENDENTE" || session.status.startsWith("PEND") || session.status.startsWith("SEM_"))
+        }
     }
     
     if (pendingSessions.isEmpty()) return
@@ -1833,7 +1838,7 @@ fun UrgentComplianceTrackerPanel(
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(26.dp)
                 )
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "🚨 MONITOR DE TRÂMITES CRÍTICOS (SLA 24H)",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -1843,6 +1848,17 @@ fun UrgentComplianceTrackerPanel(
                         text = "Monitore obrigações prévias e cobre as partes antes do evento para evitar bloqueios.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "${pendingSessions.size} PENDENTE(S)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -1864,82 +1880,92 @@ fun UrgentComplianceTrackerPanel(
                             )
                             .border(
                                 width = 1.dp,
-                                color = if (isPrestadorPending) MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-                                        else if (isGerentePending) Color(0xFFF59E0B).copy(alpha = 0.4f)
-                                        else Color(0xFF10B981).copy(alpha = 0.2f),
+                                color = if (isPrestadorPending) MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+                                        else if (isGerentePending) Color(0xFFF59E0B).copy(alpha = 0.5f)
+                                        else Color(0xFF10B981).copy(alpha = 0.3f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Title Row with Session Name and Badge
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = "Sessão #${session.id} - ${session.company}",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                color = if (isPrestadorPending) MaterialTheme.colorScheme.errorContainer
-                                                        else if (isGerentePending) Color(0xFFFEF3C7)
-                                                        else Color(0xFFD1FAE5),
-                                                shape = RoundedCornerShape(4.dp)
-                                            )
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = if (isPrestadorPending) "Aguardando Docs" else if (isGerentePending) "Aguardando OS" else "Trâmites OK",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = if (isPrestadorPending) MaterialTheme.colorScheme.onErrorContainer
-                                                    else if (isGerentePending) Color(0xFF92400E)
-                                                    else Color(0xFF065F46)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Sessão #${session.id} - ${session.company}",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Surface(
+                                color = if (isPrestadorPending) MaterialTheme.colorScheme.errorContainer
+                                        else if (isGerentePending) Color(0xFFFEF3C7)
+                                        else Color(0xFFD1FAE5),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
                                 Text(
-                                    text = "Loja: ${session.storeName} | Data: ${session.date} às ${session.time}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = if (isPrestadorPending) "Aguardando Docs" else if (isGerentePending) "Aguardando OS" else "Trâmites OK",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                                    color = if (isPrestadorPending) MaterialTheme.colorScheme.onErrorContainer
+                                            else if (isGerentePending) Color(0xFF92400E)
+                                            else Color(0xFF065F46),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                
-                                // Text explanation of the pending duty
-                                Row(
-                                    verticalAlignment = Alignment.Top,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPrestadorPending) Icons.Default.Warning else Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = if (isPrestadorPending) MaterialTheme.colorScheme.error else if (isGerentePending) Color(0xFFD97706) else Color(0xFF10B981),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(
-                                        text = if (isPrestadorPending) {
-                                            "Prestador ${session.prestadorName} precisa urgente enviar documentos civis para liberar a emissão da OS."
-                                        } else if (isGerentePending) {
-                                            "Documentos do prestador recebidos! Gerente ${session.gerenteName} deve cadastrar a OS de Liberação (SLA: 24h antes)."
-                                        } else {
-                                            "Trâmites prévios preenchidos com sucesso. Prontos para o evento."
-                                        },
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
                             }
-                            
-                            // Action/Nudge Button
+                        }
+
+                        // Subtitle: Store and Date/Time
+                        Text(
+                            text = "Loja: ${session.storeName} | Data: ${session.date} às ${session.time}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Alert explanation box
+                        Surface(
+                            color = if (isPrestadorPending) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                                    else if (isGerentePending) Color(0xFFFFFBEB)
+                                    else Color(0xFFECFDF5),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(0.5.dp, if (isPrestadorPending) MaterialTheme.colorScheme.error.copy(alpha = 0.3f) else if (isGerentePending) Color(0xFFFBBF24) else Color(0xFF34D399))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isPrestadorPending) Icons.Default.Warning else if (isGerentePending) Icons.Default.HourglassTop else Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = if (isPrestadorPending) MaterialTheme.colorScheme.error else if (isGerentePending) Color(0xFFD97706) else Color(0xFF10B981),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = if (isPrestadorPending) {
+                                        "⚠️ Prestador ${session.prestadorName} precisa urgente enviar documentos civis para liberar a emissão da OS."
+                                    } else if (isGerentePending) {
+                                        "📄 Documentos recebidos! Gerente ${session.gerenteName} deve cadastrar a OS de Liberação (SLA: 24h antes)."
+                                    } else {
+                                        "✅ Trâmites prévios preenchidos com sucesso. Prontos para o atendimento."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        // Action / Cobrar Button Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             if (!allOk) {
                                 Button(
                                     onClick = {
@@ -1949,6 +1975,7 @@ fun UrgentComplianceTrackerPanel(
                                         val dutyDesc = if (isPrestadorPending) "Envio de RG/CPF e foto do documento civil para liberação de acesso" else "Cadastro da Ordem de Serviço (OS) de Liberação"
                                         
                                         viewModel.nudgeParticipant(session.id, targetRole, targetName, dutyDesc)
+                                        ToastUtils.show(context, "🔔 Cobrança enviada para $targetName com sucesso!")
                                         
                                         val msg = "🚨 LEMBRETE URGENTE DE LIBERAÇÃO DE ACESSO\n\nOlá, $targetName! Por favor, acesse o link de liberação abaixo para concluir a pendência ($dutyDesc):\n\n$targetLink"
                                         val sendIntent = android.content.Intent().apply {
@@ -1959,12 +1986,12 @@ fun UrgentComplianceTrackerPanel(
                                         context.startActivity(android.content.Intent.createChooser(sendIntent, "Cobrar $targetName via WhatsApp / SMS"))
                                     },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isPrestadorPending) MaterialTheme.colorScheme.error else Color(0xFFF59E0B)
+                                        containerColor = if (isPrestadorPending) MaterialTheme.colorScheme.error else Color(0xFFD97706)
                                     ),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     modifier = Modifier
-                                        .wrapContentWidth()
                                         .height(36.dp)
+                                        .testTag("btn_cobrar_${session.id}")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.NotificationsActive,
@@ -1972,9 +1999,9 @@ fun UrgentComplianceTrackerPanel(
                                         modifier = Modifier.size(16.dp),
                                         tint = Color.White
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "COBRAR",
+                                        text = "🔔 COBRAR VIA WHATSAPP",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = Color.White
                                     )
@@ -1982,7 +2009,7 @@ fun UrgentComplianceTrackerPanel(
                             }
                         }
 
-                        // Quick Share buttons row directly in compliance tracker
+                        // Quick Share links row directly under each monitored session
                         QuickLinkShareButtonsRow(session = session)
                     }
                 }
